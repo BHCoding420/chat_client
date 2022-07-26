@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { styles } from "./LoggedIn.styles";
 import { Container, Row, Col, Button } from "react-bootstrap";
 import axios from "axios";
 import Chatbox from "./Chatbox/Chatbox";
-
+import io from "socket.io-client";
 const LoggedIn = (User) => {
   const [SearchedUsers, setSearchedUsers] = useState([]);
   const [messages, setmessages] = useState([]);
@@ -15,15 +15,80 @@ const LoggedIn = (User) => {
   const [sentMessage, setsentMessage] = useState(false);
   const [sentMessageId, setsentMessageId] = useState(0);
   const [search, setsearch] = useState("");
+  const [arrivingMsg, setarrivingMsg] = useState(null);
+
+  const ENDPOINT = `http://localhost:5000/`;
+
+  const [socket, setSocket] = useState(null);
+
+  useEffect(() => {
+    setSocket(io("http://localhost:5000"), {
+      transports: ["websocket"],
+    });
+  }, []);
+
+  useEffect(() => {
+    console.log(arrivingMsg);
+    if (arrivingMsg) {
+      if (
+        reciever.Email === arrivingMsg.Sender ||
+        reciever.Email === arrivingMsg.Reciever
+      ) {
+        setmessages([...messages, arrivingMsg]);
+      }
+      const sentby = arrivingMsg.Sender;
+      let chat_to_change = null;
+      let chat_to_change_index = -1;
+      for (var x in ContactsList) {
+        if (ContactsList[x].Email === sentby) {
+          chat_to_change = ContactsList[x];
+          chat_to_change_index = x;
+          break;
+        }
+      }
+      axios
+        .get(
+          `${import.meta.env.VITE_APP_BACKEND}/chats/getchats/get/${
+            User.User.Email
+          }
+          `
+        )
+        .then((response) => {
+          console.log(response.data);
+          setContactsList(response.data);
+          //setContactsList(ContactsList.sort);
+        });
+    }
+  }, [arrivingMsg]);
 
   //const [currentUser, setcurrentUser] = useState();
+  useEffect(() => {
+    const user = User.User;
+    console.log("socket", socket);
+    socket?.on("connect_error", (err) => {
+      console.log(`connect_error due to ${err.message}`);
+    });
+    socket?.emit("join", { user }, (error) => {
+      if (error) {
+        alert(error);
+      }
+    });
+  }, [socket]);
 
   const sendMessage = async () => {
     let id = Math.floor(Math.random() * 10000);
     setsentMessageId(id);
     console.log(id);
+    console.log(socket);
     //add message to Messages
     console.log("the reciever is ", reciever.Email);
+    let msg = {
+      MessageId: id,
+      Sender: User.User.Email,
+      Reciever: reciever.Email,
+      Seen: 0,
+      Content: messageContent,
+    };
     await axios
       .post(`${import.meta.env.VITE_APP_BACKEND}/messages`, {
         sender: User.User.Email,
@@ -32,16 +97,10 @@ const LoggedIn = (User) => {
         MessageId: id,
       })
       .then((response) => {
-        setmessages([
-          ...messages,
-          {
-            MessageId: id,
-            Sender: User.User.Email,
-            Reciever: reciever.Email,
-            Seen: 0,
-            Content: messageContent,
-          },
-        ]);
+        setmessages([...messages, msg]);
+        socket.emit("send-msg", {
+          msg,
+        });
         setmessageContent("");
       });
     let chatter1 = "";
@@ -231,6 +290,14 @@ const LoggedIn = (User) => {
       fetchUsers();
     }
   }, [search]);
+
+  useEffect(() => {
+    socket?.on("msg-recieve", (data) => {
+      console.log(data);
+      setarrivingMsg(data.msg);
+    });
+    //console.log("arriving msg in msg-recieve", arrivingMsg);
+  }, [socket]);
 
   return (
     <Container style={styles.LoggedInMenu}>
