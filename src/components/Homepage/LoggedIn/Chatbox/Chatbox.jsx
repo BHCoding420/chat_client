@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { styles } from "./Chatbox.styles";
 
 const Chatbox = ({ messages, setmessages, user }) => {
+  const scrollRef = useRef();
+
   return (
-    <div style={styles.chatbox}>
+    <div style={styles.chatbox} ref={scrollRef}>
       {messages &&
         messages.map((message) => (
           <div
