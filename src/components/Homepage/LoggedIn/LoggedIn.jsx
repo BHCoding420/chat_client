@@ -4,6 +4,10 @@ import { Container, Row, Col, Button } from "react-bootstrap";
 import axios from "axios";
 import Chatbox from "./Chatbox/Chatbox";
 import io from "socket.io-client";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import useSound from "use-sound";
+
 const LoggedIn = (User) => {
   const [SearchedUsers, setSearchedUsers] = useState([]);
   const [messages, setmessages] = useState([]);
@@ -21,43 +25,99 @@ const LoggedIn = (User) => {
 
   const [socket, setSocket] = useState(null);
 
+  function Notification({ sender }) {
+    var sender_of_msg = null;
+
+    const fetchSender = async () => {
+      await axios
+        .get(`${import.meta.env.VITE_APP_BACKEND}/users/${arrivingMsg.Sender}`)
+        .then((response) => {
+          sender_of_msg = response.data.data[0];
+        });
+    };
+    return (
+      <div
+        onClick={() => {
+          fetchSender();
+          setreciever(sender_of_msg);
+        }}
+        style={{ maxWidth: "100%", minWidth: "100%" }}
+      >
+        <p>{sender}:</p>
+        <p>{arrivingMsg.Content}</p>
+      </div>
+    );
+  }
+
   useEffect(() => {
     setSocket(io("http://localhost:5000"), {
       transports: ["websocket"],
     });
   }, []);
 
+  const sendNotification = async () => {
+    toast.warning(<Notification sender={arrivingMsg.Sender} />, {
+      position: toast.POSITION.TOP_RIGHT,
+    });
+  };
   useEffect(() => {
     console.log(arrivingMsg);
     if (arrivingMsg) {
-      if (
-        reciever.Email === arrivingMsg.Sender ||
-        reciever.Email === arrivingMsg.Reciever
-      ) {
-        setmessages([...messages, arrivingMsg]);
-      }
-      const sentby = arrivingMsg.Sender;
-      let chat_to_change = null;
-      let chat_to_change_index = -1;
-      for (var x in ContactsList) {
-        if (ContactsList[x].Email === sentby) {
-          chat_to_change = ContactsList[x];
-          chat_to_change_index = x;
-          break;
+      if (reciever) {
+        if (reciever.Email === arrivingMsg.Sender) {
+          setmessages([...messages, arrivingMsg]);
+        } else {
+          sendNotification();
+        }
+        const sentby = arrivingMsg.Sender;
+        let chat_to_change = null;
+        let chat_to_change_index = -1;
+        for (var x in ContactsList) {
+          if (ContactsList[x].Email === sentby) {
+            chat_to_change = ContactsList[x];
+            chat_to_change_index = x;
+            break;
+          }
+        }
+        axios
+          .get(
+            `${import.meta.env.VITE_APP_BACKEND}/chats/getchats/get/${
+              User.User.Email
+            }
+            `
+          )
+          .then((response) => {
+            console.log(response.data);
+            setContactsList(response.data);
+            //setContactsList(ContactsList.sort);
+          });
+      } else {
+        sendNotification();
+        const sentby = arrivingMsg.Sender;
+        let chat_to_change = null;
+        let chat_to_change_index = -1;
+        if (ContactsList.length > 0) {
+          for (var x in ContactsList) {
+            if (ContactsList[x].Email === sentby) {
+              chat_to_change = ContactsList[x];
+              chat_to_change_index = x;
+              break;
+            }
+          }
+          axios
+            .get(
+              `${import.meta.env.VITE_APP_BACKEND}/chats/getchats/get/${
+                User.User.Email
+              }
+            `
+            )
+            .then((response) => {
+              console.log(response.data);
+              setContactsList(response.data);
+              //setContactsList(ContactsList.sort);
+            });
         }
       }
-      axios
-        .get(
-          `${import.meta.env.VITE_APP_BACKEND}/chats/getchats/get/${
-            User.User.Email
-          }
-          `
-        )
-        .then((response) => {
-          console.log(response.data);
-          setContactsList(response.data);
-          //setContactsList(ContactsList.sort);
-        });
     }
   }, [arrivingMsg]);
 
@@ -87,6 +147,7 @@ const LoggedIn = (User) => {
       Sender: User.User.Email,
       Reciever: reciever.Email,
       Seen: 0,
+      Date: Date.now(),
       Content: messageContent,
     };
     await axios
@@ -301,6 +362,8 @@ const LoggedIn = (User) => {
 
   return (
     <Container style={styles.LoggedInMenu}>
+      <ToastContainer autoClose={false} closeOnClick={false} />
+
       <Row>
         <Col style={styles.columns}>
           <div>
