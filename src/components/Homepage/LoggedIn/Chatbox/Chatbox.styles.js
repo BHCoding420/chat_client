@@ -6,12 +6,12 @@ export const styles = {
     display: "flex",
     flexDirection: "column",
   },
-  messageBoxReciever: {
+  messageBoxSender: {
     textAlign: "right",
     display: "flex",
     justifyContent: "flex-end",
   },
-  messageBoxSender: {
+  messageBoxReciever: {
     textAlign: "left",
     display: "flex",
     justifyContent: "flex-start",

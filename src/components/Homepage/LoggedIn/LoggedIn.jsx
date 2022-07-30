@@ -20,7 +20,7 @@ const LoggedIn = (User) => {
   const [sentMessageId, setsentMessageId] = useState(0);
   const [search, setsearch] = useState("");
   const [arrivingMsg, setarrivingMsg] = useState(null);
-
+  const [recieverStatus, setrecieverStatus] = useState("");
   const ENDPOINT = `http://localhost:5000/`;
 
   const [socket, setSocket] = useState(null);
@@ -50,6 +50,28 @@ const LoggedIn = (User) => {
   }
 
   useEffect(() => {
+    if (reciever) {
+      socket?.emit("checkOnline", reciever.Email);
+      socket?.on("status", (data) => {
+        console.log("status", data);
+        data.status === "Online"
+          ? setrecieverStatus(data.status)
+          : setrecieverStatus(data.LastSeen);
+      });
+      socket?.on("userLeft", (data) => {
+        if (data.Email === reciever.Email) {
+          setrecieverStatus(data.LastSeen);
+        }
+      });
+      socket?.on("userJoin", (data) => {
+        if (data.Email === reciever.Email) {
+          setrecieverStatus(data.Status);
+        }
+      });
+    }
+  }, [reciever]);
+
+  useEffect(() => {
     setSocket(io("http://localhost:5000"), {
       transports: ["websocket"],
     });
@@ -66,6 +88,11 @@ const LoggedIn = (User) => {
       if (reciever) {
         if (reciever.Email === arrivingMsg.Sender) {
           setmessages([...messages, arrivingMsg]);
+          //emit to sender that i read
+          socket?.emit("reading", {
+            user: reciever.Email,
+            reciever: User.User.Email,
+          });
         } else {
           sendNotification();
         }
@@ -133,6 +160,12 @@ const LoggedIn = (User) => {
         alert(error);
       }
     });
+    socket?.on("status", (data) => {
+      console.log("status", data);
+      data.status === "Online"
+        ? setrecieverStatus(data.status)
+        : setrecieverStatus("last seen : " + data.LastSeen);
+    });
   }, [socket]);
 
   const sendMessage = async () => {
@@ -146,6 +179,8 @@ const LoggedIn = (User) => {
       MessageId: id,
       Sender: User.User.Email,
       Reciever: reciever.Email,
+      FirstName: reciever.FirstName,
+      LastName: reciever.LastName,
       Seen: 0,
       Date: Date.now(),
       Content: messageContent,
@@ -159,6 +194,7 @@ const LoggedIn = (User) => {
       })
       .then((response) => {
         setmessages([...messages, msg]);
+
         socket.emit("send-msg", {
           msg,
         });
@@ -186,6 +222,7 @@ const LoggedIn = (User) => {
           console.log(response);
           setsentMessage(true);
           console.log(sentMessage);
+          setContactsList([...ContactsList, response.data]);
         });
       setcurrentChat({ Chatter1: chatter1, Chatter2: chatter2, MessageId: id });
     }
@@ -354,11 +391,95 @@ const LoggedIn = (User) => {
 
   useEffect(() => {
     socket?.on("msg-recieve", (data) => {
+      let chat_available = false;
+      console.log("arrivingMsg", arrivingMsg);
+      console.log("data.msg", data.msg);
+      for (var x in ContactsList) {
+        if (data.msg.Sender === ContactsList[x].Email) {
+          chat_available = true;
+          console.log("this already exists", ContactsList[x]);
+          break;
+        }
+      }
+
+      console.log(chat_available);
       console.log(data);
+      if (!chat_available) {
+        let newChat = {
+          Content: data.msg.Content,
+          Date: data.msg.Date,
+          Email: data.msg.Sender,
+          FirstName: data.msg.FirstName,
+          LastName: data.msg.LastName,
+          LastSentMessage: data.msg.MessageId,
+        };
+        console.log("newChat", newChat);
+        setContactsList([...ContactsList, newChat]);
+        //setContactsList();
+      }
       setarrivingMsg(data.msg);
     });
+
     //console.log("arriving msg in msg-recieve", arrivingMsg);
   }, [socket]);
+
+  useEffect(() => {
+    console.log("ContactsList : ", ContactsList);
+  }, [ContactsList]);
+
+  const [messagesGotRead, setmessagesGotRead] = useState(null);
+  useEffect(() => {
+    if (messagesGotRead) {
+      console.log(JSON.stringify(messagesGotRead));
+      //alert(JSON.stringify(messages[messages.length - 1]));
+
+      axios
+        .get(
+          `${import.meta.env.VITE_APP_BACKEND}/messages/${User.User.Email}/${
+            reciever.Email
+          }`
+        )
+        .then((response) => {
+          setmessages(response.data);
+        });
+    }
+  }, [messagesGotRead]);
+
+  useEffect(() => {
+    //console.log("messages", messages);
+    if (reciever) {
+      socket?.on("latestMessagesRead", (data) => {
+        console.log(JSON.stringify(data));
+        setmessagesGotRead(data);
+        //const temp = messages;
+        /*for (var x in temp) {
+          if (!temp[x].Seen && temp[x].Reciever === data.readby) {
+            temp[x].Seen = true;
+          }
+        }*/
+        /*temp.forEach((msg) => {
+          if (!msg.Seen && msg.Reciever === data.readby) {
+            msg.Seen = true;
+          }
+        });
+        console.log(temp);*/
+      });
+    }
+    if (reciever) {
+      axios
+        .patch(
+          `${import.meta.env.VITE_APP_BACKEND}/messages/updateRead/${
+            reciever.Email
+          }/${User.User.Email}`
+        )
+        .then((response) => {
+          socket?.emit("reading", {
+            user: User.User.Email,
+            reciever: reciever.Email,
+          });
+        });
+    }
+  }, [reciever]);
 
   return (
     <Container style={styles.LoggedInMenu}>
@@ -367,6 +488,7 @@ const LoggedIn = (User) => {
       <Row>
         <Col style={styles.columns}>
           <div>
+            <p>{User.User.FirstName}</p>
             <input
               type="text"
               name="search"
@@ -408,9 +530,12 @@ const LoggedIn = (User) => {
             }}
           >
             {reciever && (
-              <p>
-                {reciever.FirstName} {reciever.LastName}
-              </p>
+              <div>
+                <p>
+                  {reciever.FirstName} {reciever.LastName}
+                </p>
+                <p>{recieverStatus}</p>
+              </div>
             )}
           </Row>
           <Row

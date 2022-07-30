@@ -19,6 +19,17 @@ const Chatbox = ({ messages, setmessages, user }) => {
               <span style={{ display: "block", fontSize: "0.6rem" }}>
                 {message.Date}
               </span>
+              {message.Sender === user.Email && (
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: "0.6rem",
+                    float: "right",
+                  }}
+                >
+                  {message.Seen ? "seen" : "unseen"}
+                </span>
+              )}
             </p>
           </div>
         ))}
