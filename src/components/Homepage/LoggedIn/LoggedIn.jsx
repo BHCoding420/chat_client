@@ -6,7 +6,8 @@ import Chatbox from "./Chatbox/Chatbox";
 import io from "socket.io-client";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import useSound from "use-sound";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useNavigate } from "react-router-dom";
 
 const LoggedIn = (User) => {
   const [SearchedUsers, setSearchedUsers] = useState([]);
@@ -481,19 +482,54 @@ const LoggedIn = (User) => {
     }
   }, [reciever]);
 
+  const [isShown, setIsShown] = useState(false);
+
   return (
     <Container style={styles.LoggedInMenu}>
       <ToastContainer autoClose={false} closeOnClick={false} />
 
       <Row>
         <Col style={styles.columns}>
-          <div>
-            <p>{User.User.FirstName}</p>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <h2>Chats</h2>
+            <div style={styles.dropdown}>
+              <Button
+                variant="outline-light"
+                onClick={() => setIsShown(!isShown)}
+              >
+                {User.User.FirstName.charAt(0).toUpperCase()}
+                {User.User.LastName.charAt(0).toUpperCase()}
+              </Button>
+              <div
+                style={
+                  isShown ? styles.dropdownContentHover : styles.dropdownContent
+                }
+              >
+                {/*<p onClick={() => navigate(`/profile/${User.id}`)}>Profile</p>*/}
+                <p
+                  onClick={() => {
+                    document.cookie =
+                      "user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    window.location.assign("http://localhost:3000");
+                  }}
+                >
+                  Log out
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="input-group rounded">
             <input
-              type="text"
-              name="search"
+              type="search"
+              className="form-control rounded"
+              placeholder="Search for any User"
+              aria-label="Search"
+              aria-describedby="search-addon"
               onChange={(e) => searchUsers(e.target.value)}
             />
+            <span className="input-group-text border-0" id="search-addon">
+              <i className="fas fa-search"></i>
+            </span>
           </div>
 
           <div style={styles.List}>
@@ -515,7 +551,11 @@ const LoggedIn = (User) => {
                     style={styles.ContactName}
                   >
                     {user.FirstName} {user.LastName}
-                    {user.Content && <p>{user.Content}</p>}
+                    {user.Content && (
+                      <p style={{ color: "grey", fontSize: "1rem" }}>
+                        {user.Content}
+                      </p>
+                    )}
                   </p>
                 ))}
           </div>
@@ -525,8 +565,8 @@ const LoggedIn = (User) => {
             style={{
               minHeight: "10vh",
               maxHeight: "10vh",
-              borderRadius: "25px",
-              backgroundColor: "yellow",
+
+              backgroundColor: "#2e2d41",
             }}
           >
             {reciever && (
@@ -542,8 +582,8 @@ const LoggedIn = (User) => {
             style={{
               minHeight: "70vh",
               maxHeight: "70vh",
-              borderRadius: "25px",
-              backgroundColor: "yellow",
+
+              backgroundColor: "rgba(23,22,44,255)",
             }}
           >
             <Chatbox
@@ -556,19 +596,34 @@ const LoggedIn = (User) => {
             style={{
               minHeight: "10vh",
               maxHeight: "10vh",
-              borderRadius: "25px",
-              backgroundColor: "yellow",
+
+              backgroundColor: "rgba(23,22,44,255)",
             }}
           >
-            <Col xs={10} className="pt-3">
-              <input
-                type="text"
-                style={{ minWidth: "100%" }}
-                onChange={(e) => setmessageContent(e.target.value)}
-              />
-            </Col>
-            <Col className="pt-3">
-              <Button onClick={() => sendMessage()}>send</Button>
+            <Col xs={12} className="pt-3">
+              <div className="input-group rounded">
+                <input
+                  type="search"
+                  className="form-control rounded"
+                  placeholder="Search"
+                  aria-label="Search"
+                  aria-describedby="search-addon"
+                  onChange={(e) => setmessageContent(e.target.value)}
+                />
+                <span className="input-group-text border-0" id="search-addon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    class="bi bi-send"
+                    viewBox="0 0 16 16"
+                    onClick={() => sendMessage()}
+                  >
+                    <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z" />
+                  </svg>
+                </span>
+              </div>
             </Col>
           </Row>
         </Col>
