@@ -73,7 +73,7 @@ const LoggedIn = (User) => {
   }, [reciever]);
 
   useEffect(() => {
-    setSocket(io("http://localhost:5000"), {
+    setSocket(io(import.meta.env.VITE_APP_BACKEND), {
       transports: ["websocket"],
     });
   }, []);
